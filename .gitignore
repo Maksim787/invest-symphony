@@ -1,0 +1,12 @@
+# IDE
+.idea
+__pycache__
+.vscode
+
+# temporary
+temp/
+tmp/
+tmp.*
+data/
+
+# tokens
