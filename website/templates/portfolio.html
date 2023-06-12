@@ -1,0 +1,48 @@
+{% extends "base.html" %} {% block title %}Портфель{% endblock %} {% block
+content %} {% block style %}
+<style>
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    color: #333;
+  }
+  th {
+    background-color: #f2f2f2;
+    text-align: left;
+    padding: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+</style>
+{% endblock %}
+
+<div class="container">
+  <h2>Портфель</h2>
+  <table>
+    <tr>
+      <th>Название</th>
+      <th>Количество акций</th>
+      <th>Цена одной акции</th>
+      <th>Цена акций в портфеле</th>
+      <th>Доля в портфеле</th>
+    </tr>
+    {% for stock in portfolio.stocks %}
+    <tr>
+      <td>{{ stock.name }}</td>
+      <td>{{ stock.n_shares }}</td>
+      <td>{{ stock.price }}</td>
+      <td>{{ stock.shares_price }}</td>
+      <td>{{ stock.ratio }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

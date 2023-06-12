@@ -7,7 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from dataclasses import dataclass
 
-from download_tickers import download_tickers
+from .download_tickers import download_tickers
 
 
 class TimeSeriesType(Enum):
