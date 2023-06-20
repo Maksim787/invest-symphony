@@ -12,6 +12,7 @@ views = Blueprint('views', __name__)
 def home():
     risk_question = 'Как вы относитесь к риску?'
     time_question = 'На какой срок вы собираетесь инвестировать?'
+    max_instruments_question = 'Какое максимальное число инструментов вы готовы включить в свой портфель?'
     questions = [
         {
             'question': risk_question,
@@ -27,12 +28,24 @@ def home():
                 {'value': 'year_3', 'label': '3 года'},
                 {'value': 'year_more', 'label': 'больше 3 лет'},
             ]
+        },
+        {
+            'question': max_instruments_question,
+            'options': [
+                {'value': '5', 'label': 'Не более 5'},
+                {'value': '10', 'label': 'Не более 10'},
+                {'value': '20', 'label': 'Не более 20'},
+                {'value': '-1', 'label': 'Мне не важно'},
+            ]
         }
     ]
     if request.method == 'POST':
-        risk_answer = request.form.get(questions[0]['question'])
-        time_answer = request.form.get(questions[1]['question'])
+        risk_answer = request.form.get(risk_question)
+        time_answer = request.form.get(time_question)
         capital_answer = float(request.form.get('capital'))
-        portfolio = create_stock_only_portfolio(capital=capital_answer, risk=risk_answer)
+        max_instruments_answer = int(request.form.get(max_instruments_question))
+        if max_instruments_answer == -1:
+            max_instruments_answer = None
+        portfolio = create_stock_only_portfolio(capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
         return render_template('portfolio.html', portfolio=portfolio, user=current_user)
     return render_template('form.html', questions=questions, user=current_user)

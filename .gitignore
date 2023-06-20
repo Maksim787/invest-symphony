@@ -10,5 +10,7 @@ tmp.*
 data/
 figures/
 instance/
+venv/
+deploy.zip
 
 # tokens

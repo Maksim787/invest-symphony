@@ -5,17 +5,12 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 
-from download_data.download_tickers import download_tickers
-from download_data.download_day_close_or_candles import download_day_close_or_candles, TimeSeriesConfig, TimeSeriesType
-
 
 db = SQLAlchemy()
 DB_NAME = "database.db"
 
 
 def create_app():
-    download_all_data()
-
     app = Flask(__name__)
     app.config['SECRET_KEY'] = 'some secret key'
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_NAME}'
@@ -41,18 +36,6 @@ def create_app():
         return User.query.get(int(id))
 
     return app
-
-
-def download_all_data():
-    # Download data
-    data_path = Path('data')
-    if not data_path.exists():
-        data_path.mkdir()
-        asyncio.run(download_tickers())
-        asyncio.run(download_day_close_or_candles(
-            time_series_folder=Path('data/day_close/'),
-            time_series_config=TimeSeriesConfig(TimeSeriesType.CLOSE)
-        ))
 
 
 def create_database(app):
