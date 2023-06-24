@@ -1,0 +1,8 @@
+hr {
+    size: 30
+}
+
+.container {
+    border: 2px solid #000000; /* Sets the border style, width, and color */
+    padding: 10px; /* Adds some padding inside the border */
+}

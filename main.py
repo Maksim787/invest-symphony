@@ -1,3 +1,9 @@
+# Comment these lines to run locally
+import os
+os.system('pip install -r requirements.txt')
+print('Installed requirements')
+# End
+
 import argparse
 import asyncio
 from pathlib import Path

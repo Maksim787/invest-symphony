@@ -1,76 +1,56 @@
-{% extends "base.html" %} {% block title %}Портфель{% endblock %} {% block
-content %} {% block style %}
-<style>
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    font-family: Arial, sans-serif;
-    color: #333;
-  }
-  th {
-    background-color: #f2f2f2;
-    text-align: left;
-    padding: 10px;
-    font-weight: bold;
-    text-transform: uppercase;
-  }
-  td {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-  }
-  tr:nth-child(even) {
-    background-color: #f9f9f9;
-  }
-</style>
-{% endblock %}
+{% extends "base.html" %} {% block title %}Портфель{% endblock %} {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='portfolio.css') }}">
 
 <div class="container">
-  <h2>Акции ({{ portfolio.stocks_ratio }})</h2>
+  <h2 align="center">Акции: {{ portfolio.stocks_ratio }}</h2>
   <table>
     <tr>
       <th>Название</th>
       <th>Тикер</th>
       <th>Сектор</th>
-      <th>Количество акций</th>
-      <th>Цена одной акции</th>
-      <th>Цена акций в портфеле</th>
-      <th>Доля в портфеле</th>
+      <th>Количество</th>
+      <th>Цена</th>
+      <th>Доля</th>
     </tr>
     {% for stock in portfolio.stocks %}
     <tr>
       <td>{{ stock.info.name }}</td>
       <td>{{ stock.info.ticker }}</td>
-      <td>{{ stock.info.sector }}</td>
+      <td>{{ stock.sector }}</td>
       <td>{{ stock.number }}</td>
       <td>{{ stock.price }}</td>
-      <td>{{ stock.total_price }}</td>
       <td>{{ stock.ratio }}</td>
     </tr>
     {% endfor %}
   </table>
-
-  <h2>Облигации ({{ portfolio.bonds_ratio }})</h2>
+</br>
+  <h2 align="center">Облигации: {{ portfolio.bonds_ratio }}</h2>
   <table>
     <tr>
       <th>Название</th>
       <th>Тикер</th>
       <th>Сектор</th>
-      <th>Количество облигаций</th>
-      <th>Цена одной облигации</th>
-      <th>Цена облигаций в портфеле</th>
-      <th>Доля в портфеле</th>
+      <th>Количество</th>
+      <th>Цена</th>
+      <th>Доходность</th>
+      <th>Доля</th>
     </tr>
     {% for bond in portfolio.bonds %}
     <tr>
       <td>{{ bond.info.name }}</td>
       <td>{{ bond.info.ticker }}</td>
-      <td>{{ bond.info.sector }}</td>
+      <td>{{ bond.sector }}</td>
       <td>{{ bond.number }}</td>
       <td>{{ bond.price }}</td>
-      <td>{{ bond.total_price }}</td>
+      <td>{{ bond.info.real_rate_str }}</td>
       <td>{{ bond.ratio }}</td>
     </tr>
     {% endfor %}
   </table>
+</br>
+</br>
+</br>
+</br>
+</br>
 </div>
 {% endblock %}

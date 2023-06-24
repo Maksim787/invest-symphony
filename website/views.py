@@ -10,9 +10,9 @@ views = Blueprint('views', __name__)
 
 @views.route('/', methods=['GET', 'POST'])
 def home():
-    risk_question = 'Как вы относитесь к риску?'
-    time_question = 'На какой срок вы собираетесь инвестировать?'
-    max_instruments_question = 'Какое максимальное число инструментов вы готовы включить в свой портфель?'
+    risk_question = 'Как я отношусь к риску?'
+    time_question = 'На какой срок я собираюсь инвестировать?'
+    max_instruments_question = 'Сколько инструментов я готов купить?'
     questions = [
         {
             'question': risk_question,

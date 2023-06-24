@@ -31,6 +31,7 @@ class BondInfo:
         # rate
         self.rate = self._get_rate(self._raw_present_value)
         self.real_rate = self._get_rate(self._real_present_value)
+        self.real_rate_str = f'{self.real_rate:.1f}%'
 
         # general info
         self.name = bond.name
@@ -96,6 +97,22 @@ async def update_information():
     Information.bonds.sort(key=lambda bond: bond.real_rate, reverse=True)
 
 
+SECTOR_TRANSLATION = {
+    'consumer': 'потребительский',
+    'energy': 'энергия',
+    'financial': 'финансы',
+    'government': 'государственный',
+    'health_care': 'здравоохранение',
+    'industrials': 'промышленность',
+    'materials': 'сырье',
+    'real_estate': 'недвижимость',
+    'telecom': 'телекоммуникации',
+    'utilities': 'коммунальные услуги',
+    'it': 'IT',
+    'other': 'другое'
+}
+
+
 @dataclass
 class Bond:
     number: int
@@ -103,14 +120,19 @@ class Bond:
 
     price: float = None
     total_price: float = None
+    sector: str = None
     ratio: float = None
 
     def __post_init__(self):
         self.price = self.info.price + self.info.aci_value
         self.total_price = self.price * self.number
+        self.sector = SECTOR_TRANSLATION.get(self.info.sector)
+        if self.sector is None:
+            print(self.info.sector)
+            self.sector = 'другое'
 
     def format_str(self):
-        self.price = f'{self.price} руб.'
+        self.price = f'{self.price:.2f} руб.'
         self.total_price = f'{self.total_price:.2f} руб.'
         self.ratio = f'{self.ratio:.1%}'
 
@@ -122,12 +144,17 @@ class Stock:
 
     price: float = None
     total_price: float = None
+    sector: str = None
     ratio: float = None
 
     def __post_init__(self):
         self.number = self.number // self.info.lot * self.info.lot
         self.price = Information.df.iloc[-1][self.info.ticker]
         self.total_price = self.number * self.price
+        self.sector = SECTOR_TRANSLATION.get(self.info.sector)
+        if self.sector is None:
+            print(self.info.sector)
+            self.sector = 'другое'
 
     def format_str(self):
         self.price = f'{self.price} руб.'
@@ -149,10 +176,10 @@ class Portfolio:
         self.stocks_ratio = f'{stocks_value / portfolio_value:.1%}'
         self.bonds_ratio = f'{bonds_value / portfolio_value:.1%}'
         for stock in self.stocks:
-            stock.ratio = stock.total_price / portfolio_value
+            stock.ratio = stock.total_price / stocks_value
             stock.format_str()
         for bond in self.bonds:
-            bond.ratio = bond.total_price / portfolio_value
+            bond.ratio = bond.total_price / bonds_value
             bond.format_str()
 
 
@@ -178,7 +205,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
 
     df = Information.df.copy()
     # add bonds to daily stock info
-    df['bond'] = (1 + 8 / 100) ** (1 / TRADING_DAYS_IN_YEAR) - 1
+    df['bond'] = (1 + 7 / 100) ** (1 / TRADING_DAYS_IN_YEAR) - 1
 
     w = get_markowitz_w(df, mu_year_pct=mu_by_risk[risk])
     prices = df.iloc[-1]
@@ -211,7 +238,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
         weights.pop(remove_ind)
         prices.pop(remove_ind)
         weights = (np.array(weights) / np.sum(weights)).tolist()
-    stocks.sort(key=lambda stock: stock.info.sector)
+    stocks.sort(key=lambda stock: stock.sector)
 
     # Get bonds
     assert 'bond' in names
@@ -231,6 +258,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
                 break
             n_bonds[i] += 1
     bonds = [Bond(n_bonds, info=bond) for n_bonds, bond in zip(n_bonds, bonds) if n_bonds > 0]
+    bonds.sort(key=lambda bond: bond.sector)
 
     portfolio = Portfolio(stocks=stocks, bonds=bonds)
     return portfolio
