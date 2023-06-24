@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from . import db
 from .models import User
 
-from website.library.stock_only_portfolio import RISK_VALUES, create_stock_only_portfolio
+from website.library.portfolio import RISK_VALUES, create_portfolio
 
 views = Blueprint('views', __name__)
 
@@ -46,6 +46,6 @@ def home():
         max_instruments_answer = int(request.form.get(max_instruments_question))
         if max_instruments_answer == -1:
             max_instruments_answer = None
-        portfolio = create_stock_only_portfolio(capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
+        portfolio = create_portfolio(capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
         return render_template('portfolio.html', portfolio=portfolio, user=current_user)
     return render_template('form.html', questions=questions, user=current_user)

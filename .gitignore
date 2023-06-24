@@ -14,3 +14,4 @@ venv/
 deploy.zip
 
 # tokens
+keys.yaml
