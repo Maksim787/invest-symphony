@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import tinkoff.invest as inv
 from research.library.load import load_data, TRADING_DAYS_IN_YEAR
 from research.library.markowitz import get_markowitz_w
-from download_data.download_tinkoff import get_shares_info, get_bonds_info, quotation_to_float
+from download_data import download_shares_info, download_bonds_info, quotation_to_float
 
 RISK_VALUES = [
     {'value': 'high', 'label': 'Готов на высокий риск для получения высокой доходности'},
@@ -77,24 +77,24 @@ class BondInfo:
         return value
 
 
-class Information:
-    df: pd.DataFrame = None
-    share_by_ticker: dict[str, inv.Share]
-    bonds: list[BondInfo]
+class DataRAM:
+    df_close_prices: pd.DataFrame = None  # for shares
+    share_by_ticker: dict[str, inv.Share] = None
+    bonds: list[BondInfo] = None
 
 
-async def update_information():
-    # get daily stock info
-    Information.df = load_data(verbose=False).drop(columns=['MTLR', 'MTLRP', 'UTAR'])
+async def load_data_to_ram():
+    # Load close prices
+    DataRAM.df_close_prices = load_data(verbose=False).drop(columns=['MTLR', 'MTLRP', 'UTAR'])  # TODO: fix the issue with tickers
 
     # get shares info
-    shares = await get_shares_info(force_update=False)
-    Information.share_by_ticker = {share.ticker: share for share in shares}
+    shares = await download_shares_info(force_update=False)
+    DataRAM.share_by_ticker = {share.ticker: share for share in shares}
 
     # get bonds info
-    bonds, bonds_coupons, bonds_last_prices = await get_bonds_info(force_update=False)
-    Information.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices)]
-    Information.bonds.sort(key=lambda bond: bond.real_rate, reverse=True)
+    bonds, bonds_coupons, bonds_last_prices = await download_bonds_info(force_update=False)
+    DataRAM.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices)]
+    DataRAM.bonds.sort(key=lambda bond: bond.real_rate, reverse=True)
 
 
 SECTOR_TRANSLATION = {
@@ -149,7 +149,7 @@ class Stock:
 
     def __post_init__(self):
         self.number = self.number // self.info.lot * self.info.lot
-        self.price = Information.df.iloc[-1][self.info.ticker]
+        self.price = DataRAM.df_close_prices.iloc[-1][self.info.ticker]
         self.total_price = self.number * self.price
         self.sector = SECTOR_TRANSLATION.get(self.info.sector)
         if self.sector is None:
@@ -203,7 +203,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
         'low': [8, 9]
     }
 
-    df = Information.df.copy()
+    df = DataRAM.df_close_prices.copy()
     # add bonds to daily stock info
     df['bond'] = (1 + 7 / 100) ** (1 / TRADING_DAYS_IN_YEAR) - 1
 
@@ -225,7 +225,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
         stocks = []
         for name, w, price in zip(names, weights, prices):
             if name != 'bond':
-                stock = Stock(number=int(capital * w / price), info=Information.share_by_ticker[name])
+                stock = Stock(number=int(capital * w / price), info=DataRAM.share_by_ticker[name])
                 if stock.number > 0:
                     stocks.append(stock)
                     n_taken += 1
@@ -244,7 +244,7 @@ def create_portfolio(capital: float, risk: str, max_instruments: int | None):
     assert 'bond' in names
 
     lower_rate, upper_rate = bond_real_rate_by_risk[risk]
-    bonds = [bond for bond in Information.bonds if lower_rate <= bond.real_rate <= upper_rate]
+    bonds = [bond for bond in DataRAM.bonds if lower_rate <= bond.real_rate <= upper_rate]
     capital_in_bonds = capital - sum([stock.total_price for stock in stocks])
     n_bonds = min(max_bonds, int(capital_in_bonds / 1000))
     if n_bonds < len(bonds):

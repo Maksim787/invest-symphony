@@ -7,6 +7,7 @@ import datetime
 from pathlib import Path
 
 from .utils import is_sorted
+from download_data.moex import MOEX_CLOSE_DIRECTORY
 
 N_TARGET_TICKERS = 31
 REMOVE_TICKERS = ['IRAO']
@@ -18,11 +19,10 @@ TEST_RATIO = 0.3
 TRADING_DAYS_IN_YEAR = 252
 
 
-def load_data(day_close_folder: str = 'data/day_close/', n_target_tickers: int = N_TARGET_TICKERS, remove_tickers: list[str] = REMOVE_TICKERS, min_observations_per_year: int = MIN_OBSERVATIONS_PER_YEAR, verbose: bool = True) -> pd.DataFrame:
+def load_data(day_close_folder: Path = MOEX_CLOSE_DIRECTORY, n_target_tickers: int = N_TARGET_TICKERS, remove_tickers: list[str] = REMOVE_TICKERS, min_observations_per_year: int = MIN_OBSERVATIONS_PER_YEAR, verbose: bool = True) -> pd.DataFrame:
     # load data
-    day_close_folder = Path(day_close_folder)
     if not day_close_folder.exists():
-        day_close_folder = Path(f'../{day_close_folder}')
+        day_close_folder = Path(f'../') / MOEX_CLOSE_DIRECTORY
     assert day_close_folder.exists()
     tickers_original = sorted([file.removesuffix('.csv') for file in os.listdir(day_close_folder)])
     print(f'Original number of tickers: {len(tickers_original)}')
@@ -110,6 +110,7 @@ def _filter_dfs(dfs: dict[str, pd.DataFrame], n_target_stocks: int, remove_ticke
 
 
 def _merge_dfs(dfs: dict[str, pd.DataFrame], date_column, price_column: str) -> pd.DataFrame:
+    # TODO: do not drop observations where there are NaNs
     result_df = None
     for ticker, df in dfs.items():
         df = df.copy().set_index(date_column)
