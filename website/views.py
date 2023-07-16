@@ -58,7 +58,7 @@ def home_post():
     if max_instruments_answer == -1:
         max_instruments_answer = None
     # Construct portfolio
-    portfolio = create_portfolio(capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
+    portfolio = create_portfolio(total_capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
     # TODO: add here graphs for portfolio
     # Show portfolio
     return render_template("portfolio.html", portfolio=portfolio)

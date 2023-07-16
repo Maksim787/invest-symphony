@@ -1,53 +1,66 @@
 import pandas as pd
 import numpy as np
-import typing as tp
-from enum import Enum, auto
-from scipy.optimize import minimize
+import cvxpy as cp
+import time
 
-from .load import TRADING_DAYS_IN_YEAR
+from .load import TRADING_DAYS_IN_YEAR, ClosePricesStatistics
 
 
-def get_markowitz_w(df_price: pd.DataFrame, mu_year_pct: float) -> pd.Series:
-    # convert mu to ratio return in 1 day
-    mu = (1 + mu_year_pct / 100) ** (1 / TRADING_DAYS_IN_YEAR) - 1
+def _year_return_pct_to_day_return(year_return: float) -> float:
+    """
+    Convert year return in % to daily return in ratio
+    """
+    return year_return / TRADING_DAYS_IN_YEAR / 100
 
-    day_returns = df_price.pct_change().dropna()
-    day_distance = pd.to_timedelta((df_price.index[1:] - df_price.index[:-1]).total_seconds(), unit='s')
-    day_returns['day_distance'] = day_distance
-    days = day_returns['day_distance'].dt.days
-    day_returns = day_returns.drop(columns=['day_distance'])
-    for ticker in df_price.columns:
-        if ticker == 'bond':
-            day_returns[ticker] = df_price[ticker][0]
-        else:
-            day_returns[ticker] /= days
 
-    Sigma = day_returns.cov()
-    returns = day_returns.mean(axis=0)
+def get_markowitz_w(stat: ClosePricesStatistics, bond_year_return_pct: float, bond_year_return_std_pct: float, bond_share_corr: float, mu_year_pct: float) -> pd.Series:
+    """
+    Get markowitz portfolio optimization result
+    Use assets from stat
+    Add bond asset to portfolio
+    """
+    start_time = time.time()
+    assert bond_year_return_pct >= 0
 
-    n_assets = len(returns)
+    # Convert mu to ratio return in 1 day
+    mu = _year_return_pct_to_day_return(mu_year_pct)
+    bond_day_return_mean = _year_return_pct_to_day_return(bond_year_return_pct)
+    bond_day_return_std = bond_year_return_std_pct / 100 / np.sqrt(TRADING_DAYS_IN_YEAR)
 
-    bounds = [(0, 1)] * n_assets
-    assert Sigma.columns[-1] == 'bond'
-    w0 = [1 / (2 * (n_assets - 1))] * (n_assets - 1) + [1/2]
-    constraints = [{'type': 'eq', 'fun': lambda w:  w.sum() - 1},
-                   {'type': 'eq', 'fun': lambda w: w @ returns - mu}]
+    # Get required statistics
+    n_assets = len(stat.tickers) + 1
 
-    def objective(w): return w @ Sigma @ w
-    def jac(w): return 2 * Sigma @ w
-    result = minimize(objective, w0, bounds=bounds, constraints=constraints, jac=jac)
+    corr_col = (bond_share_corr * bond_day_return_std * stat.std_returns.values).reshape(-1, 1)
+    Sigma = np.block([[np.full((1, 1), bond_day_return_std ** 2), corr_col.T], [corr_col, stat.Sigma_cov.values]])
+    returns = np.append(bond_day_return_mean, stat.mean_returns.values)
 
-    try:
-        assert result.success
-        w = result.x
-    except AssertionError:
-        print(f'Fail to optimize (no success): {returns=}')
-        w = np.array(w0)
-    try:
-        assert np.isclose(w.sum(), 1)
-    except AssertionError:
-        print(f'Fail to optimize (sum of weights is not 1): {returns=}; {w=}; {w.sum()=}; {w @ returns=}')
-        w = np.array(w0)
-    assert np.isclose(w.sum(), 1)
-    assert np.all(w >= 0)
-    return pd.Series(w, index=df_price.columns)
+    # Define optimized variable
+    w = cp.Variable(n_assets)
+
+    # Define objective (w.T @ Sigma @ w -> min)
+    objective = cp.Minimize((1/2) * cp.quad_form(w, Sigma))
+
+    # Define constraints (0 <= w_i <= 1, sum(w_i) = 1, returns @ w = mu)
+    constraints = [w >= 0, w <= 1, w @ np.ones(n_assets) == 1, returns @ w == mu]
+
+    # Define problem
+    problem = cp.Problem(objective, constraints)
+
+    # Solve problem
+    problem.solve()
+    assert problem.status == cp.OPTIMAL, f'{problem.status}: {n_assets=}, {bond_year_return_pct=}, {bond_year_return_std_pct=}, {bond_share_corr=}, {mu_year_pct=}'
+
+    # Convert to pd.Series
+    solution = pd.Series(w.value, index=['bond'] + stat.tickers)
+
+    # Remove values below 0
+    solution[solution < 0] = 0
+
+    # Do sanity checks
+    assert np.isclose(solution.sum(), 1)
+    assert np.all((0 <= solution) & (solution <= 1))
+    assert np.isclose(solution @ returns, mu)
+
+    print(f'Optimization time: {time.time() - start_time:.2f} s. n_assets={n_assets}')
+
+    return solution

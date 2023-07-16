@@ -33,13 +33,13 @@ Run website:
 Locally:
 
 ```bash
-main.py --debug
+python main.py --debug
 ```
 
 On server:
 
 ```bash
-main.py --download_every_day --download_on_start
+python main.py --download_every_day --download_on_start
 ```
 
 Flags (you can ignore them if the data is already downloaded):

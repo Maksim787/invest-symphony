@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='portfolio.css') }}">
 
 <div class="container">
-  <h2 align="center">Акции: {{ portfolio.stocks_ratio }}</h2>
+  <h2 align="center">Акции: {{ portfolio.stocks_ratio_str }}</h2>
   <table>
     <tr>
       <th>Название</th>
@@ -18,13 +18,13 @@
       <td>{{ stock.info.ticker }}</td>
       <td>{{ stock.sector }}</td>
       <td>{{ stock.number }}</td>
-      <td>{{ stock.price }}</td>
-      <td>{{ stock.ratio }}</td>
+      <td>{{ stock.price_str }}</td>
+      <td>{{ stock.ratio_str }}</td>
     </tr>
     {% endfor %}
   </table>
 </br>
-  <h2 align="center">Облигации: {{ portfolio.bonds_ratio }}</h2>
+  <h2 align="center">Облигации: {{ portfolio.bonds_ratio_str }}</h2>
   <table>
     <tr>
       <th>Название</th>
@@ -41,9 +41,9 @@
       <td>{{ bond.info.ticker }}</td>
       <td>{{ bond.sector }}</td>
       <td>{{ bond.number }}</td>
-      <td>{{ bond.price }}</td>
-      <td>{{ bond.info.real_rate_str }}</td>
-      <td>{{ bond.ratio }}</td>
+      <td>{{ bond.price_str }}</td>
+      <td>{{ bond.info.real_ytm_pct_str }}</td>
+      <td>{{ bond.ratio_str }}</td>
     </tr>
     {% endfor %}
   </table>
