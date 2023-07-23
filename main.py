@@ -8,7 +8,7 @@ import asyncio
 import argparse
 import typing as tp
 
-from website.library.portfolio import load_data_to_ram
+from website.library import load_data_to_ram
 from download_all import download_all
 
 
@@ -51,6 +51,7 @@ def main():
     get_job_to_run_once_a_day(download_data=args.download_on_start)()
 
     # Run app
+    print('Run app')
     app.run(debug=args.debug, port=80, host='0.0.0.0')
 
 

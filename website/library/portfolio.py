@@ -11,7 +11,7 @@ import typing as tp
 from dataclasses import dataclass
 
 import tinkoff.invest as inv
-from research import load_data, TRADING_DAYS_IN_YEAR, ClosePricesStatistics
+from research import load_data, ClosePricesStatistics
 from research.library.markowitz import get_markowitz_w
 from download_data import download_shares_info, download_bonds_info, quotation_to_float
 
@@ -153,7 +153,7 @@ class Bond:
     info: BondInfo
 
     price: float = None
-    total_price: float = None
+    invested_capital: float = None
     sector: str = None
     ratio: float = None  # is filled inside the Portfolio class
 
@@ -162,7 +162,7 @@ class Bond:
 
     def __post_init__(self):
         self.price = self.info.price + self.info.aci_value
-        self.total_price = self.price * self.number
+        self.invested_capital = self.price * self.number
         self.sector = SECTOR_TRANSLATION.get(self.info.sector)
         if self.sector is None:
             print(self.info.sector)
@@ -181,19 +181,19 @@ class Stock:
 
     # post init params
     price: float = None
-    total_price: float = None
+    invested_capital: float = None
     sector: str = None
     ratio: float = None  # is filled inside the Portfolio class
 
     # format params
     price_str: str = None
-    total_price_str: str = None
+    invested_capital_str: str = None
     ratio_str: str = None
 
     def __post_init__(self):
         assert self.number % self.info.lot == 0
         self.price = DataRAM.stat.last_prices[self.info.ticker]
-        self.total_price = self.number * self.price
+        self.invested_capital = self.number * self.price
         self.sector = SECTOR_TRANSLATION.get(self.info.sector)
         if self.sector is None:
             print(f'ERROR: unknown sector: {self.info.sector}')
@@ -204,7 +204,7 @@ class Stock:
         Fill fields for displaying on website
         """
         self.price_str = f'{self.price} руб.'
-        self.total_price_str = f'{self.total_price:.2f} руб.'
+        self.invested_capital_str = f'{self.invested_capital:.2f} руб.'
         self.ratio_str = f'{self.ratio:.1%}'
 
 
@@ -223,8 +223,8 @@ class Portfolio:
 
     def __post_init__(self):
         # Calculate total stocks, bonds and portfolio value
-        stocks_value = sum([stock.total_price for stock in self.stocks])
-        bonds_value = sum([bond.total_price for bond in self.bonds])
+        stocks_value = sum([stock.invested_capital for stock in self.stocks])
+        bonds_value = sum([bond.invested_capital for bond in self.bonds])
         portfolio_value = stocks_value + bonds_value
 
         # Calculate the amount of remaining money
@@ -236,10 +236,10 @@ class Portfolio:
 
         # Format stocks and bonds ratios
         for stock in self.stocks:
-            stock.ratio = stock.total_price / stocks_value
+            stock.ratio = stock.invested_capital / stocks_value
             stock.fill_str_fields()
         for bond in self.bonds:
-            bond.ratio = bond.total_price / bonds_value
+            bond.ratio = bond.invested_capital / bonds_value
             bond.fill_str_fields()
 
 
@@ -263,7 +263,7 @@ async def load_data_to_ram():
 
     # Load bonds info
     bonds, bonds_coupons, bonds_last_prices = await download_bonds_info(force_update=False)
-    DataRAM.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices)]
+    DataRAM.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices) if bond.maturity_date >= datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)]
     DataRAM.bonds.sort(key=lambda bond: bond.real_ytm_pct, reverse=True)
 
 
@@ -374,7 +374,7 @@ def create_portfolio(total_capital: float, risk: str, max_instruments: int | Non
     stocks = _create_stocks_portfolio(total_capital, w, max_stocks)
 
     # Create bonds portfolio
-    capital_in_bonds = total_capital - sum([stock.total_price for stock in stocks])
+    capital_in_bonds = total_capital - sum([stock.invested_capital for stock in stocks])
     lower_rate, upper_rate = BOND_RATE_BOUNDS_BY_RISK[risk]
     bonds = _create_bonds_portfolio(capital_in_bonds, max_bonds, lower_rate, upper_rate)
 
@@ -393,7 +393,7 @@ def _test_portfolio():
 
     CAPITAL = 5e6
     RISK_VALUE = 'medium'
-    portfolio = create_portfolio(total_capital=CAPITAL, risk=RISK_VALUE, max_instruments=None)
+    portfolio = create_portfolio(total_capital=CAPITAL, risk=RISK_VALUE, max_instruments=5)
     print(portfolio)
 
 

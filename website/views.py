@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request
 
-from website.library.portfolio import RISK_VALUES, create_portfolio
+from website.library import RISK_VALUES, create_portfolio, create_graphs
 
 # Create /views
 views = Blueprint("views", __name__)
@@ -59,6 +59,6 @@ def home_post():
         max_instruments_answer = None
     # Construct portfolio
     portfolio = create_portfolio(total_capital=capital_answer, risk=risk_answer, max_instruments=max_instruments_answer)
-    # TODO: add here graphs for portfolio
+    graphs = create_graphs(portfolio)
     # Show portfolio
-    return render_template("portfolio.html", portfolio=portfolio)
+    return render_template("portfolio.html", portfolio=portfolio, graphs=graphs)
