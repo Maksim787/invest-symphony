@@ -93,6 +93,7 @@ pyparsing==3.0.9
 python-dateutil==2.8.2
 python-json-logger==2.0.7
 pytz==2023.3
+pywin32==306
 PyYAML==6.0
 pyzmq==25.1.0
 qdldl==0.1.7.post0

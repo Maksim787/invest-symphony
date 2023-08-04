@@ -13,11 +13,11 @@ def _year_return_pct_to_day_return(year_return: float) -> float:
     return year_return / TRADING_DAYS_IN_YEAR / 100
 
 
-def get_markowitz_w(stat: ClosePricesStatistics, bond_year_return_pct: float, bond_year_return_std_pct: float, bond_share_corr: float, mu_year_pct: float) -> pd.Series:
+def get_markowitz_w(stat: ClosePricesStatistics, bond_year_return_pct: float, bond_year_return_std_pct: float, bond_share_corr: float, mu_year_pct: float, include_bonds: bool) -> pd.Series:
     """
     Get markowitz portfolio optimization result
     Use assets from stat
-    Add bond asset to portfolio
+    Add bond asset to portfolio if include_bonds=True
     """
     start_time = time.time()
     assert bond_year_return_pct >= 0
@@ -28,11 +28,16 @@ def get_markowitz_w(stat: ClosePricesStatistics, bond_year_return_pct: float, bo
     bond_day_return_std = bond_year_return_std_pct / 100 / np.sqrt(TRADING_DAYS_IN_YEAR)
 
     # Get required statistics
-    n_assets = len(stat.tickers) + 1
-
-    corr_col = (bond_share_corr * bond_day_return_std * stat.std_returns.values).reshape(-1, 1)
-    Sigma = np.block([[np.full((1, 1), bond_day_return_std ** 2), corr_col.T], [corr_col, stat.Sigma_cov.values]])
-    returns = np.append(bond_day_return_mean, stat.mean_returns.values)
+    n_assets = len(stat.tickers)
+    Sigma = stat.Sigma_cov.values
+    returns = stat.mean_returns.values
+    index = stat.tickers
+    if include_bonds:
+        n_assets += 1
+        corr_col = (bond_share_corr * bond_day_return_std * stat.std_returns.values).reshape(-1, 1)
+        Sigma = np.block([[np.full((1, 1), bond_day_return_std ** 2), corr_col.T], [corr_col, Sigma]])
+        returns = np.append(bond_day_return_mean, returns)
+        index = ['bond'] + index
 
     # Define optimized variable
     w = cp.Variable(n_assets)
@@ -51,7 +56,7 @@ def get_markowitz_w(stat: ClosePricesStatistics, bond_year_return_pct: float, bo
     assert problem.status == cp.OPTIMAL, f'{problem.status}: {n_assets=}, {bond_year_return_pct=}, {bond_year_return_std_pct=}, {bond_share_corr=}, {mu_year_pct=}'
 
     # Convert to pd.Series
-    solution = pd.Series(w.value, index=['bond'] + stat.tickers)
+    solution = pd.Series(w.value, index=index)
 
     # Remove values below 0
     solution[solution < 0] = 0

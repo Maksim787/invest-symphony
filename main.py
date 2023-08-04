@@ -1,6 +1,16 @@
 # Uncomment these lines to run on server to install dependencies
-# os.system('pip install -r requirements.txt')
-# print('Installed requirements')
+# print('Rewrite requirements.txt')
+# with open('requirements.txt') as f:
+#     lines = f.readlines()
+#     lines = [line for line in lines if 'pywin' not in line]
+# with open('requirements.txt', 'w') as f:
+#     f.writelines(lines)
+
+# import time; time.sleep(5)
+# import os; os.system('pip install -r requirements.txt')
+# print('Requirements are successfully installed')
+# time.sleep(5)
+# print('Start main.py')
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from website import create_app

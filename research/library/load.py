@@ -15,7 +15,7 @@ from download_data.moex import MOEX_CLOSE_DIRECTORY, MOEX_TICKERS_DIRECTORY
 
 TRADING_DAYS_IN_YEAR = 252  # global constant
 N_MIN_TRADING_YEARS = 8
-# N_MIN_TRADING_YEARS = 9.5
+# N_MIN_TRADING_YEARS = 9.5 # for debug
 MIN_OBSERVATIONS = TRADING_DAYS_IN_YEAR * N_MIN_TRADING_YEARS  # number of observations per ticker
 
 ###################################################################################

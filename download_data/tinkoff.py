@@ -130,7 +130,7 @@ def _download_bonds_general_info(client: AsyncServices) -> tp.Awaitable:
     today = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
     def is_good_bond(bond: inv.Bond) -> bool:
-        if not bond.buy_available_flag or not bond.sell_available_flag or not bond.for_iis_flag or bond.otc_flag or bond.lot != 1:
+        if not bond.buy_available_flag or not bond.sell_available_flag or not bond.for_iis_flag or bond.otc_flag or bond.lot != 1 or bond.for_qual_investor_flag:
             return False
         if bond.perpetual_flag or bond.floating_coupon_flag or bond.amortization_flag:
             return False

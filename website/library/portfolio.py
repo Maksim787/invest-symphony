@@ -26,6 +26,8 @@ RISK_VALUES = [
     {'value': 'low', 'label': 'Не готов терпеть риски, согласен на скромную доходность'}
 ]
 
+MAX_TIME_ANSWER = datetime.timedelta(days=3 * 365)
+
 
 ###################################################################################
 # tinkoff API sectors
@@ -157,6 +159,7 @@ class Bond:
     sector: str = None
     ratio: float = None  # is filled inside the Portfolio class
 
+    maturity_str = None
     price_str: str = None
     ratio_str: str = None
 
@@ -169,6 +172,7 @@ class Bond:
             self.sector = 'другое'
 
     def fill_str_fields(self):
+        self.maturity_str = f'{self.info.maturity_date.strftime("%Y-%m-%d")}'
         self.price_str = f'{self.price:.2f} руб.'
         self.ratio_str = f'{self.ratio:.1%}'
 
@@ -263,7 +267,8 @@ async def load_data_to_ram():
 
     # Load bonds info
     bonds, bonds_coupons, bonds_last_prices = await download_bonds_info(force_update=False)
-    DataRAM.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices) if bond.maturity_date >= datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)]
+    now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    DataRAM.bonds = [BondInfo(bond, coupons, last_price) for bond, coupons, last_price in zip(bonds, bonds_coupons, bonds_last_prices) if bond.maturity_date >= now]
     DataRAM.bonds.sort(key=lambda bond: bond.real_ytm_pct, reverse=True)
 
 
@@ -277,9 +282,10 @@ def _create_stocks_portfolio(total_capital: float, w: pd.Series, max_stocks: int
     Include top max_stocks into portfolio
     Important: total_capital is capital in both stocks and bonds (remove w['bond'] weight to obtain stocks capital)
     """
-    assert w.index[0] == 'bond'
-
-    w = w.iloc[1:].values
+    if w.index[0] == 'bond':
+        w = w.iloc[1:]
+        assert 'bond' not in w.index
+        w = w.values
     w_sum = w.sum()
     prices = DataRAM.stat.last_prices.values
     tickers = np.array(DataRAM.stat.tickers)
@@ -310,14 +316,38 @@ def _create_stocks_portfolio(total_capital: float, w: pd.Series, max_stocks: int
     return sorted(stocks, key=lambda stock: stock.sector)
 
 
-def _create_bonds_portfolio(capital_in_bonds: float, max_bonds: int | float, lower_rate_pct: float, upper_rate_pct: float) -> list[Bond]:
+def _create_bonds_portfolio(capital_in_bonds: float, time_answer: datetime.timedelta | None, max_bonds: int | float, lower_rate_pct: float, upper_rate_pct: float) -> list[Bond]:
     """
     Create bonds portfolio from bonds with real YTM in [lower_rate_pct, upper_rate_pct]
     """
+    now = datetime.date.today()
     # Filter bonds with YTM in [lower_rate_pct, upper_rate_pct]
-    bonds = [bond for bond in DataRAM.bonds if lower_rate_pct <= bond.real_ytm_pct <= upper_rate_pct]
+    if time_answer is not None:
+        MAX_TIME_DEVIATION = datetime.timedelta(days=2 * 30) if time_answer < datetime.timedelta(days=365) else datetime.timedelta(days=30 * 6)
+        expected_maturity_day = now + time_answer if time_answer is not None else None
+
+    def filter_bond_condition(info: BondInfo) -> bool:
+        # Only bonds that are traded now
+        if info.maturity_date <= now:
+            return False
+        # YTM filter
+        if not (lower_rate_pct <= info.real_ytm_pct <= upper_rate_pct):
+            return False
+        # time_answer filter
+        if time_answer is not None:
+            if abs(info.maturity_date - expected_maturity_day) > MAX_TIME_DEVIATION:
+                return False
+        else:
+            if info.maturity_date < now + MAX_TIME_ANSWER:
+                return False
+        return True
+
+    # Filter bonds by YTM and time_answer
+    bonds = [bond for bond in DataRAM.bonds if filter_bond_condition(bond)]
+    # Sort bonds by time_answer
+    bonds.sort(key=lambda bond: abs(bond.maturity_date - expected_maturity_day) if time_answer else -(bond.maturity_date - now))
     if max_bonds < len(bonds):
-        bonds = bonds[:max_bonds]
+        bonds = bonds[:max_bonds]  # do not take more than max_bonds
 
     # How many bonds of each type to take
     n_bonds_taken = [0] * len(bonds)
@@ -336,15 +366,20 @@ def _create_bonds_portfolio(capital_in_bonds: float, max_bonds: int | float, low
     return bonds
 
 
-def create_portfolio(total_capital: float, risk: str, max_instruments: int | None):
+def create_portfolio(total_capital: float, risk: str, max_instruments: int | None, time_answer: datetime.timedelta, bonds_or_shares_answer: str):
     # Check parameters
     assert risk in ['high', 'medium', 'low'], 'Incorrect risk value'
+    assert bonds_or_shares_answer in ['both', 'shares', 'bonds']
     if max_instruments is None:
         max_stocks = float('+inf')
         max_bonds = float('+inf')
     else:
-        max_stocks = max_instruments // 2
-        max_bonds = max_instruments - max_stocks
+        if bonds_or_shares_answer in 'both':
+            max_stocks = max_instruments // 2
+            max_bonds = max_instruments - max_stocks
+        else:
+            max_stocks = max_instruments
+            max_bonds = max_instruments
 
     # markowitz optimization parameters
     MU_PCT_BY_RISK = {
@@ -368,15 +403,23 @@ def create_portfolio(total_capital: float, risk: str, max_instruments: int | Non
         'low': 0.5
     }
     BOND_SHARE_CORR = 0.1
-    w = get_markowitz_w(DataRAM.stat, bond_year_return_pct=BOND_MEAN_RATE_BY_RISK[risk], bond_year_return_std_pct=BOND_STD_BY_RISK[risk], bond_share_corr=BOND_SHARE_CORR, mu_year_pct=MU_PCT_BY_RISK[risk])
 
-    # Create stocks portfolio from weights
-    stocks = _create_stocks_portfolio(total_capital, w, max_stocks)
+    if bonds_or_shares_answer in ['both', 'shares']:
+        # Find optimal portfolio
+        include_bonds = True if bonds_or_shares_answer == 'both' else False
+        w = get_markowitz_w(DataRAM.stat, bond_year_return_pct=BOND_MEAN_RATE_BY_RISK[risk], bond_year_return_std_pct=BOND_STD_BY_RISK[risk], bond_share_corr=BOND_SHARE_CORR, mu_year_pct=MU_PCT_BY_RISK[risk], include_bonds=include_bonds)
+        # Create stocks portfolio from weights
+        stocks = _create_stocks_portfolio(total_capital, w, max_stocks)
+    else:
+        stocks = []
 
     # Create bonds portfolio
-    capital_in_bonds = total_capital - sum([stock.invested_capital for stock in stocks])
-    lower_rate, upper_rate = BOND_RATE_BOUNDS_BY_RISK[risk]
-    bonds = _create_bonds_portfolio(capital_in_bonds, max_bonds, lower_rate, upper_rate)
+    if bonds_or_shares_answer in ['both', 'bonds']:
+        capital_in_bonds = total_capital - sum([stock.invested_capital for stock in stocks])
+        lower_rate, upper_rate = BOND_RATE_BOUNDS_BY_RISK[risk]
+        bonds = _create_bonds_portfolio(capital_in_bonds, time_answer, max_bonds, lower_rate, upper_rate)
+    else:
+        bonds = []
 
     portfolio = Portfolio(total_capital=total_capital, stocks=stocks, bonds=bonds)
     return portfolio
@@ -392,8 +435,9 @@ def _test_portfolio():
     asyncio.run(load_data_to_ram())
 
     CAPITAL = 5e6
-    RISK_VALUE = 'medium'
-    portfolio = create_portfolio(total_capital=CAPITAL, risk=RISK_VALUE, max_instruments=5)
+    risk = 'medium'
+    bonds_or_shares_answer = 'both'
+    portfolio = create_portfolio(total_capital=CAPITAL, risk=risk, max_instruments=5, time_answer=datetime.timedelta(days=365), bonds_or_shares_answer=bonds_or_shares_answer)
     print(portfolio)
 
 
