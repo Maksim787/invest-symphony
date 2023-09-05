@@ -1,6 +1,6 @@
 import asyncio
 
-N_PARALLEL_DOWNLOADS = 5
+N_PARALLEL_DOWNLOADS = 100
 semaphore = asyncio.Semaphore(N_PARALLEL_DOWNLOADS)
 
 

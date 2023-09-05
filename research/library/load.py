@@ -26,6 +26,7 @@ MIN_OBSERVATIONS = TRADING_DAYS_IN_YEAR * N_MIN_TRADING_YEARS  # number of obser
 @dataclass
 class ClosePricesStatistics:
     df_close: pd.DataFrame  # original close prices (with NaNs)
+    with_statistics: bool
     tickers: list[str] = None  # tickers from df_close
 
     last_prices: pd.Series = None
@@ -43,6 +44,10 @@ class ClosePricesStatistics:
 
         # Calculate last_prices
         self.last_prices = self.df_close.apply(lambda x: x.dropna().iloc[-1])
+
+        # Do not calculate statistics if not needed
+        if not self.with_statistics:
+            return
 
         # Calculate mean and std returns
         mean_returns = []
@@ -103,7 +108,7 @@ class ClosePricesStatistics:
         return returns
 
 
-def load_data(verbose: bool = False, tickers_subset: list[str] | None = None) -> ClosePricesStatistics:
+def load_data(verbose: bool = False, tickers_subset: list[str] | None = None, with_statistics: bool = True) -> ClosePricesStatistics:
     """
     Return daily close prices for all assets
     """
@@ -112,10 +117,12 @@ def load_data(verbose: bool = False, tickers_subset: list[str] | None = None) ->
     # Find all tickers presented
     tickers = sorted([file.name.removesuffix('.csv') for file in MOEX_CLOSE_DIRECTORY.iterdir()])
     assert tickers == sorted(pd.read_csv(MOEX_TICKERS_DIRECTORY / 'tickers.csv')['SECID'])
-    print(f'Number of tickers in data: {len(tickers)}')
+    if verbose:
+        print(f'Number of tickers in data: {len(tickers)}')
     if tickers_subset is not None:
         tickers = sorted(set(tickers) & set(tickers_subset))
-        print(f'Number of tickers after taking subset: {len(tickers)} (subset size is {len(tickers_subset)})')
+        if verbose:
+            print(f'Number of tickers after taking subset: {len(tickers)} (subset size is {len(tickers_subset)})')
 
     # Load df by ticker
     df_by_ticker = {ticker: pd.read_csv(MOEX_CLOSE_DIRECTORY / f'{ticker}.csv', parse_dates=['TRADEDATE']) for ticker in tickers}
@@ -142,15 +149,18 @@ def load_data(verbose: bool = False, tickers_subset: list[str] | None = None) ->
     # Get date range from data
     start_date = min(map(lambda df: df.index[0], df_by_ticker.values()))
     finish_date = max(map(lambda df: df.index[-1], df_by_ticker.values()))
-    print(f'Data from {start_date.date()} to {finish_date.date()}')
+    if verbose:
+        print(f'Data from {start_date.date()} to {finish_date.date()}')
 
     # Filter dfs
     df_by_ticker = {ticker: df for ticker, df in df_by_ticker.items() if len(df) >= MIN_OBSERVATIONS}
-    print(f'Number of tickers after filtering by minimum number of observations: {len(df_by_ticker)}')
+    if verbose:
+        print(f'Number of tickers after filtering by minimum number of observations: {len(df_by_ticker)}')
 
     # Filter
     df_by_ticker = {ticker: df for ticker, df in df_by_ticker.items() if (finish_date - df.index[-1]).days == 0}
-    print(f'Number of tickers after filtering by final date: {len(df_by_ticker)}')
+    if verbose:
+        print(f'Number of tickers after filtering by final date: {len(df_by_ticker)}')
 
     # Plot number of observations for each ticker
     if verbose:
@@ -162,12 +172,14 @@ def load_data(verbose: bool = False, tickers_subset: list[str] | None = None) ->
 
     # Merge time series for all tickers
     df_prices = pd.concat([df['CLOSE'].rename(ticker) for ticker, df in df_by_ticker.items()], axis=1)
-    print(f'df_prices.shape={df_prices.shape}')
+    if verbose:
+        print(f'df_prices.shape={df_prices.shape}')
 
     # Print number of observations and tickers per year
-    for year, value in df_prices.index.year.value_counts().sort_index().items():
-        print(f'{year} year: {value} observations ({df_prices[df_prices.index.year == year].notna().any().sum()}/{len(df_prices.columns)})')
+    if verbose:
+        for year, value in df_prices.index.year.value_counts().sort_index().items():
+            print(f'{year} year: {value} observations ({df_prices[df_prices.index.year == year].notna().any().sum()}/{len(df_prices.columns)})')
 
-    return_value = ClosePricesStatistics(df_prices)
+    return_value = ClosePricesStatistics(df_prices, with_statistics=with_statistics)
     print(f'load_data: {time.time() - start_time:.1f} s')
     return return_value

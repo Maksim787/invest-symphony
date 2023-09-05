@@ -23,7 +23,7 @@ MOEX_TICKERS_DIRECTORY.mkdir(exist_ok=True)
 ###################################################################################
 
 
-async def load_from_cache(folder: Path, filename: str, function: tp.Callable[..., tp.Awaitable], force_update: bool) -> pd.DataFrame:
+async def _load_from_cache(folder: Path, filename: str, function: tp.Callable[..., tp.Awaitable], force_update: bool) -> pd.DataFrame:
     """
     Loads function return value from cache
     """
@@ -66,23 +66,23 @@ def _download_ticker_close_prices(session: aiohttp.ClientSession, ticker: str) -
     return function
 
 
-async def download_shares_close_prices(force_update: bool = True):
+async def download_shares_close_prices(force_update: bool):
     # Remove old data
     if force_update:
         for file in MOEX_CLOSE_DIRECTORY.iterdir():
             file.unlink()
     async with aiohttp.ClientSession() as session:
         # Download tickers
-        tickers_df = await load_from_cache(MOEX_TICKERS_DIRECTORY, 'tickers', _download_tickers(session), force_update=force_update)
+        tickers_df = await _load_from_cache(MOEX_TICKERS_DIRECTORY, 'tickers', _download_tickers(session), force_update=force_update)
         tickers = list(tickers_df["SECID"])
         # Download close prices for each ticker
         print(f"Found tickers: {len(tickers)}: {tickers}")
         tasks = []
         for ticker in tickers:
-            tasks.append(load_from_cache(MOEX_CLOSE_DIRECTORY, ticker, _download_ticker_close_prices(session, ticker), force_update=force_update))
+            tasks.append(_load_from_cache(MOEX_CLOSE_DIRECTORY, ticker, _download_ticker_close_prices(session, ticker), force_update=force_update))
         await limited_gather(*tasks)
     print('Successfully downloaded close prices data')
 
 
 if __name__ == "__main__":
-    asyncio.run(download_shares_close_prices())
+    asyncio.run(download_shares_close_prices(force_update=True))

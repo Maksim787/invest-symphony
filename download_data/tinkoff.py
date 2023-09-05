@@ -180,12 +180,12 @@ def _download_bonds_coupons(client: AsyncServices, bonds: list[inv.Bond]) -> tp.
 ###################################################################################
 
 
-async def download_shares_info(force_update: bool = True) -> list[inv.Share]:
+async def download_shares_info(force_update: bool) -> list[inv.Share]:
     async with inv.AsyncClient(token=_get_token()) as client:
         return (await _load_from_cache('shares', _download_shares(client), force_update=force_update)).instruments
 
 
-async def download_bonds_info(force_update: bool = True) -> tuple[list[inv.Bond], list[list[inv.Coupon]], list[inv.LastPrice]]:
+async def download_bonds_info(force_update: bool) -> tuple[list[inv.Bond], list[list[inv.Coupon]], list[inv.LastPrice]]:
     async with inv.AsyncClient(token=_get_token()) as client:
         bonds: list[inv.Bond] = (await _load_from_cache("bonds", _download_bonds_general_info(client), force_update=force_update))
         bonds_coupons = (await _load_from_cache("bonds_coupons", _download_bonds_coupons(client, bonds), force_update=force_update))
@@ -195,5 +195,5 @@ async def download_bonds_info(force_update: bool = True) -> tuple[list[inv.Bond]
 
 
 if __name__ == "__main__":
-    asyncio.run(download_shares_info())
-    asyncio.run(download_bonds_info())
+    asyncio.run(download_shares_info(force_update=True))
+    asyncio.run(download_bonds_info(force_update=True))

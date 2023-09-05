@@ -30,7 +30,7 @@ def create_pie_chart(portfolio: Portfolio):
         annotations += [dict(text='Акции', x=0.18 if portfolio.bonds else 0.5, y=0.5, font_size=20, showarrow=False)]
     if portfolio.bonds:
         add_trace_for_pie_chart(fig, portfolio.bonds, min(2, n_pies))
-        annotations += [dict(text='Облигации', x=0.82 if portfolio.stocks else 0.5, y=0.5, font_size=20, showarrow=False)]
+        annotations += [dict(text='Облигации', x=0.85 if portfolio.stocks else 0.5, y=0.5, font_size=20, showarrow=False)]
 
     fig.update_traces(hole=0.4, hoverinfo="label+percent")
     fig.update_layout(title="Распределение по секторам", annotations=annotations)

@@ -1,5 +1,39 @@
 # invest-symphony
 
+## Setup
+
+1. Put a read-only Tinkoff API token into `keys.yaml`
+Example:
+
+```
+token: t.a-lot-of-letters
+```
+2. Install dependencies: `pip install -r requirements.txt`
+
+## Scripts
+
+Launch IMOEX portfolio construction (capital_rub is the capital in RUB):
+
+```
+python scripts/get_shares.py --capital_rub 100000
+```
+
+It does the following:
+1. Load shares from https://smart-lab.ru/q/index_stocks/IMOEX/ and map them to tinkoff tickers (mapping is manually hard-coded, so it should be changed when index constituents change)
+2. Substitute shares with preference shares where possible
+3. Take shares while their weight in portfolio is less than weight in IMOEX
+4. Allocate the rest of the capital greedily to minimize the difference between the ratio in portfolio and the ratio in index.
+5. The results will be in `results/` folder in csv format:
+a. ticker
+b. tinkoff_name
+c. lot_size — lot size (number of shares in 1 lot)
+d. price — price of 1 share (not 1 lot)
+e. real_price — price of 1 lot (lot_size * price)
+f. n_lots_to_buy — number of lots to buy
+d. imoex_weight,% — weight in IMOEX
+e. real_weight,% — weight in portfolio (the closer to imoex_weight,%, the better)
+f. real_value,RUB — value in RUB in portfolio (price * n_lots_to_buy * lot_size)
+
 ## Download data
 
 To initially download all data run script:
